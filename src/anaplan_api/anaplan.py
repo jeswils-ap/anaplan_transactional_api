@@ -5,18 +5,16 @@
 #                 download files from Anaplan server, and execute actions.
 # ===============================================================================
 import logging
-from typing import List, Union
+from typing import Union
+from . import UserDetails
 from .AnaplanConnection import AnaplanConnection
-from .ParserResponse import ParserResponse
 from .BasicAuthentication import BasicAuthentication
 from .CertificateAuthentication import CertificateAuthentication
-from .FileDownload import FileDownload
-from .TaskFactoryGenerator import TaskFactoryGenerator
 from .Resources import Resources
 from .ResourceParserList import ResourceParserList
 from .AnaplanResourceList import AnaplanResource
 from .AuthToken import AuthToken
-from .UploadFactory import UploadFactory
+from User import User
 from .util.Util import InvalidAuthenticationError
 
 logger = logging.getLogger(__name__)
@@ -57,43 +55,6 @@ def generate_authorization(auth_type: str = "Basic", email: str = None, password
             raise InvalidAuthenticationError("Email address and password or certificate and key must not be blank")
 
 
-def file_upload(conn: AnaplanConnection, file_id: str, chunk_size: int, data: str) -> None:
-    """Upload a file to Anaplan model
-
-    :param conn: AnaplanConnection object which contains AuthToken object, workspace ID, and model ID
-    :param file_id: ID of the file in Anaplan
-    :param chunk_size: Desired chunk size of the upload request between 1-50
-    :param data: Data to load, either path to local file or string
-    """
-
-    file = UploadFactory(data)
-    uploader = file.get_uploader(conn, file_id)
-    uploader.upload(chunk_size, data)
-
-
-def execute_action(conn: AnaplanConnection, action_id: str, retry_count: int, mapping_params: dict = None) \
-        -> List[ParserResponse]:
-    """Execute a specified Anaplan action
-
-    :param conn: AnaplanConnection object which contains AuthToken object, workspace ID, and model ID
-    :param action_id: ID of the Anaplan action to execute
-    :param retry_count: Number of times to attempt to retry if an error occurs executing an action
-    :param mapping_params: Optional dictionary of import mapping parameters
-    :return: Detailed results of the requested action task.
-    :rtype: List[ParserResponse]
-    """
-
-    generator = TaskFactoryGenerator(action_id[:3])
-    factory = generator.get_factory()
-
-    action = factory.get_action(conn=conn, action_id=action_id, retry_count=retry_count, mapping_params=mapping_params)
-    task = action.execute()
-    parser = factory.get_parser(conn=conn, results=task.get_results(), url=task.get_url())
-    task_results = parser.get_results()
-
-    return task_results
-
-
 # ===========================================================================
 # This function queries the Anaplan model for a list of the desired resources:
 # files, actions, imports, exports, processes and returns the JSON response.
@@ -115,19 +76,14 @@ def get_list(conn: AnaplanConnection, resource: str) -> AnaplanResource:
     return resource_parser.get_parser(resources_list)
 
 
-# ===========================================================================
-# This function downloads a file from Anaplan to the specified path.
-# ===========================================================================
-def get_file(conn: AnaplanConnection, file_id: str) -> str:
-    """Download the specified file from the Anaplan model
+def get_user(conn) -> UserDetails:
+    """Get details for current user
 
-    :param conn: AnaplanConnection object which contains AuthToken object, workspace ID, and model ID
-    :type conn: AnaplanConnection
-    :param file_id: ID of the Anaplan file to download
-    :type file_id: str
-    :return: File data from anaplan
-    :rtype: str
+    :param conn: Object which contains AuthToken object, workspace ID, and model ID
+    :return: Details for current user
+    :rtype: UserDetails
     """
+    current_user = User(conn)
+    current_user.get_current_user()
 
-    file_download = FileDownload(conn=conn, file_id=file_id)
-    return file_download.download_file()
+    return current_user.get_user()
