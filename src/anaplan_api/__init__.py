@@ -3,7 +3,6 @@ from .util.AnaplanVersion import AnaplanVersion
 from .util.Util import ResourceNotFoundError, UnknownTaskTypeError, TaskParameterError, InvalidTokenError,\
 	RequestFailedError, AuthenticationFailedError, InvalidAuthenticationError, MappingParameterError,\
 	InvalidUrlError, InvalidTaskTypeError, InvalidAuthenticationError
-from anaplan import (generate_authorization, get_list, get_user)
 from .AnaplanAuthentication import AnaplanAuthentication
 from .AnaplanConnection import AnaplanConnection
 from .AnaplanResource import AnaplanResource

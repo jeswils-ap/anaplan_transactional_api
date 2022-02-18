@@ -10,6 +10,7 @@ import requests
 import re
 import logging
 from requests.exceptions import HTTPError, ConnectionError, SSLError, Timeout, ConnectTimeout, ReadTimeout
+from .AnaplanRequest import AnaplanRequest
 from .AuthToken import AuthToken
 from .util.Util import AuthenticationFailedError
 
@@ -65,7 +66,7 @@ class AnaplanAuthentication(object):
 		return authenticate
 
 	@staticmethod
-	def authenticate(response: str) -> AuthToken:
+	def parse_authentication(response: str) -> AuthToken:
 		"""Parses the authentication response
 
 		:param response: JSON string with auth request response.
