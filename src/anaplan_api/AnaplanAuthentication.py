@@ -72,7 +72,7 @@ class AnaplanAuthentication(object):
 		:rtype: AnaplanRequest
 		"""
 		url = "https://auth.anaplan.com/token/refresh"
-		header = {"Authorization": ''.join(["AnaplanAuthToken ", token])}
+		header = {"Authorization": ''.join([token])}
 
 		return AnaplanRequest(url=url, header=header)
 
@@ -88,10 +88,15 @@ class AnaplanAuthentication(object):
 		new_token = ""
 		new_expiry = ""
 
-		if 'tokenInfo' in refresh:
-			if 'tokenValue' in refresh['tokenInfo']:
-				new_token = refresh['tokenInfo']['tokenValue']
-			if 'expiresAt' in refresh['tokenInfo']:
-				new_expiry = refresh['tokenInfo']['expiresAt']
-
-		return AuthToken(f"AnaplanAuthToken {new_token}", new_expiry)
+		if 'status' in refresh:
+			err_regex = re.compile('FAILURE.+')
+			if not bool(re.match(err_regex, refresh['status'])):
+				if 'tokenInfo' in refresh:
+					if 'tokenValue' in refresh['tokenInfo']:
+						new_token = refresh['tokenInfo']['tokenValue']
+					if 'expiresAt' in refresh['tokenInfo']:
+						new_expiry = refresh['tokenInfo']['expiresAt']
+					return AuthToken(f"AnaplanAuthToken {new_token}", new_expiry)
+			else:
+				logger.error(f"Error {refresh['statusMessage']}")
+				raise AuthenticationFailedError(f"Error logging in {refresh['statusMessage']}")

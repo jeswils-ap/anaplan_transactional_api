@@ -12,6 +12,8 @@ import requests.sessions
 from requests.exceptions import HTTPError, SSLError, Timeout, ConnectTimeout, ReadTimeout
 from time import time
 from typing import Union
+
+from . import AuthToken
 from .AnaplanAuthentication import AnaplanAuthentication
 from .AnaplanConnection import AnaplanConnection
 from .BasicAuthentication import BasicAuthentication
@@ -37,6 +39,7 @@ class Anaplan:
                                                                                   password=password,
                                                                                   private_key=private_key, cert=cert),
                                        workspace_id=workspace_id, model_id=model_id)
+        self._session = requests.Session()
 
     def __enter__(self):
         self._session.headers.update({'Authorization': self._conn.get_auth().get_auth_token()})
@@ -135,7 +138,7 @@ class Anaplan:
     # the remaining variables to anaplan_auth to generate the authorization for Anaplan API
     # ===========================================================================
     def _generate_authorization(self, auth_type: str = "Basic", email: str = None, password: str = None,
-                                private_key: Union[bytes, str] = None, cert: Union[bytes, str] = None) -> None:
+                                private_key: Union[bytes, str] = None, cert: Union[bytes, str] = None) -> AuthToken:
         """
         :param auth_type: Basic or Certificate authentication
         :param email: Anaplan email address for Basic auth
@@ -163,13 +166,13 @@ class Anaplan:
             basic = BasicAuthentication()
             header_string = basic.auth_header(email, password)
             auth_request = basic.auth_request(header=header_string)
-            self._conn.set_auth(basic.parse_authentication(authenticate_user(auth_request)))
+            return basic.parse_authentication(authenticate_user(auth_request))
         elif auth_type.lower() == 'certificate' and cert and private_key:
             cert_auth = CertificateAuthentication()
             header_string = cert_auth.auth_header(cert)
             post_data = cert_auth.generate_post_data(private_key)
             auth_request = cert_auth.auth_request(header=header_string, body=post_data)
-            self._conn.set_auth(cert_auth.parse_authentication(authenticate_user(auth_request)))
+            return cert_auth.parse_authentication(authenticate_user(auth_request))
         else:
             logger.error(f"Invalid authentication method: {auth_type}")
             raise ValueError(f"Invalid authentication method: {auth_type}")
@@ -219,3 +222,6 @@ class Anaplan:
         current_user.get_current_user()
 
         return current_user.get_user()
+
+    def get_auth(self):
+        return self._conn.get_auth().get_auth_token()

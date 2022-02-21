@@ -7,7 +7,7 @@ from typing import Union
 class AnaplanRequest:
 	_url: str
 	_header: dict
-	_body: dict
+	_body: dict = None
 
 	def __init__(self, url: str, header: dict, body: Union[dict, str] = None):
 		"""
@@ -31,7 +31,10 @@ class AnaplanRequest:
 		return self._header
 
 	def get_body(self) -> dict:
+		return self._body
+		'''
 		if self._body:
 			return self._body
 		else:
 			raise ValueError("Request body is empty")
+		'''
