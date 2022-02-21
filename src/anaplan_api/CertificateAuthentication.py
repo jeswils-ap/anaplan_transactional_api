@@ -10,6 +10,7 @@
 # ==============================================================================
 import os
 import logging
+import json
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
@@ -53,19 +54,22 @@ class CertificateAuthentication(AnaplanAuthentication):
 	# POST body value
 	# ===========================================================================
 	@staticmethod
-	def generate_post_data(priv_key: bytes) -> str:
+	def generate_post_data(priv_key: bytes) -> dict:
 		"""Create the body of the Auth-API request
 
 		:param priv_key: Private key text or path to key
 		:type priv_key: bytes
+		:return: JSON request body
+		:rtype: dict
 		"""
 
 		unsigned_nonce = CertificateAuthentication.create_nonce()
 		signed_nonce = str(CertificateAuthentication.sign_string(unsigned_nonce, priv_key))
 
-		json_string = ''.join(['{ "encodedData":"', str(b64encode(unsigned_nonce).decode('utf-8')), '", "encodedSignedData":"', signed_nonce, '"}'])
+		json_string = ''.join(['{ "encodedData":"', str(b64encode(unsigned_nonce).decode('utf-8')),
+		                       '", "encodedSignedData":"', signed_nonce, '"}'])
 
-		return json_string
+		return json.loads(json_string)
 
 	# ===========================================================================
 	# The function generates a pseudo-random alpha-numeric 150 character nonce

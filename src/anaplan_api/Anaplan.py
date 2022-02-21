@@ -6,10 +6,13 @@
 # ===============================================================================
 import logging
 import requests
+import json
+from json import JSONDecodeError
 import requests.sessions
 from requests.exceptions import HTTPError, SSLError, Timeout, ConnectTimeout, ReadTimeout
 from time import time
 from typing import Union
+from .AnaplanAuthentication import AnaplanAuthentication
 from .AnaplanConnection import AnaplanConnection
 from .BasicAuthentication import BasicAuthentication
 from .CertificateAuthentication import CertificateAuthentication
@@ -46,7 +49,7 @@ class Anaplan:
     def _check_expired(expiry: float):
         return expiry - (10 * 60) > time()
 
-    def _get(self, req: AnaplanRequest):
+    def _get(self, req: AnaplanRequest) -> dict:
         expiry: float
         result: requests.Response
 
@@ -63,14 +66,17 @@ class Anaplan:
 
         if result.ok:
             try:
-                result_text = result.text
+                result_text = json.loads(result.text)
                 return result_text
+            except JSONDecodeError as e:
+                logger.error(f"Error decoding request body {e}")
             except ValueError as e:
                 logger.error(f"Error reading request body {e}")
+
         else:
             raise RequestFailedError(f"Error with request HTTP error {result.status_code}")
 
-    def _post(self, req: AnaplanRequest):
+    def _post(self, req: AnaplanRequest) -> dict:
         expiry: float
         result: requests.Response
 
@@ -88,14 +94,16 @@ class Anaplan:
 
         if result.ok:
             try:
-                result_text = result.text
+                result_text = json.loads(result.text)
                 return result_text
+            except JSONDecodeError as e:
+                logger.error(f"Error decoding request body {e}")
             except ValueError as e:
                 logger.error(f"Error reading request body {e}")
         else:
             raise RequestFailedError(f"Error with request HTTP error {result.status_code}")
 
-    def _put(self, req: AnaplanRequest):
+    def _put(self, req: AnaplanRequest) -> dict:
         expiry: float
         result: requests.Response
 
@@ -113,8 +121,10 @@ class Anaplan:
 
         if result.ok:
             try:
-                result_text = result.text
+                result_text = json.loads(result.text)
                 return result_text
+            except JSONDecodeError as e:
+                logger.error(f"Error decoding request body {e}")
             except ValueError as e:
                 logger.error(f"Error reading request body {e}")
         else:
@@ -135,18 +145,54 @@ class Anaplan:
         :return:
         """
 
+        def authenticate_user(request_details: AnaplanRequest):
+            logger.info(f"Authenticating via {auth_type}.")
+            try:
+                authenticate = json.loads(requests.post(request_details.get_url(), headers=request_details.get_header(),
+                                                        data=request_details.get_body(), timeout=(5, 30)).text)
+            except (HTTPError, ConnectionError, SSLError, Timeout, ConnectTimeout, ReadTimeout) as e:
+                logger.error(f"Error fetching auth token {e}", exc_info=True)
+                raise Exception(f"Error fetching auth token {e}")
+            except ValueError as e:
+                logger.error(f"Error loading response JSON {e}", exc_info=True)
+                raise ValueError(f"Error loading response JSON {e}")
+
+            return authenticate
+
         if auth_type.lower() == 'basic' and email and password:
             basic = BasicAuthentication()
             header_string = basic.auth_header(email, password)
-            self._conn.set_auth(basic.parse_authentication(basic.auth_request(header_string)))
+            auth_request = basic.auth_request(header=header_string)
+            self._conn.set_auth(basic.parse_authentication(authenticate_user(auth_request)))
         elif auth_type.lower() == 'certificate' and cert and private_key:
             cert_auth = CertificateAuthentication()
             header_string = cert_auth.auth_header(cert)
             post_data = cert_auth.generate_post_data(private_key)
-            self._conn.set_auth(cert_auth.parse_authentication(cert_auth.auth_request(header_string, post_data)))
+            auth_request = cert_auth.auth_request(header=header_string, body=post_data)
+            self._conn.set_auth(cert_auth.parse_authentication(authenticate_user(auth_request)))
         else:
             logger.error(f"Invalid authentication method: {auth_type}")
             raise ValueError(f"Invalid authentication method: {auth_type}")
+
+    def _refresh_token(self):
+        """Refreshes the authentication token and updates the token expiry time
+        """
+
+        request_details = AnaplanAuthentication.get_token_refresh(self._conn.get_auth().get_auth_token())
+
+        try:
+            refresh = json.loads(requests.post(request_details.get_url(), headers=request_details.get_header(),
+                                               timeout=(5, 30)).text)
+        except (HTTPError, ConnectionError, SSLError, Timeout, ConnectTimeout, ReadTimeout) as e:
+            logger.error(f"Error verifying auth token {e}", exc_info=True)
+            raise Exception(f"Error verifying auth token {e}")
+        except ValueError as e:
+            logger.error(f"Error loading response JSON {e}", exc_info=True)
+            raise ValueError(f"Error loading response JSON {e}")
+
+        new_auth = AnaplanAuthentication.parse_token_refresh(refresh)
+
+        self._conn.set_auth(new_auth)
 
     # ===========================================================================
     # This function queries the Anaplan model for a list of the desired resources:
