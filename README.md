@@ -1,3 +1,5 @@
+*This package is no longer under development, and has been archived.*
+
 # anaplan-api
 
 Anaplan-Transact-API is a Python library wrapper for [Anaplan Transactional API](https://anaplanbulkapi20.docs.apiary.io/) and [Anaplan Authentication API](https://anaplanauthentication.docs.apiary.io/).
